@@ -1,0 +1,173 @@
+on imports
+from scipy.integrate import solve_ivp
+from math import sin
+import math
+import numpy as np
+from matplotlib import pyplot as plt
+# endregion
+
+# region class definitions
+class circuit():
+    """
+    A class to simulate and visualize an RLC circuit.
+    it's just here ,but it gets used later
+    Attributes:
+        R (float): Resistance in Ohms.
+        L (float): Inductance in Henries.
+        C (float): Capacitance in Farads.
+        A (float): Amplitude of the input voltage in Volts.
+        w (float): Frequency of the input voltage in radians per second.
+        p (float): Phase of the input voltage in radians.
+        t (numpy.ndarray): Time points from the simulation.
+        i1 (numpy.ndarray): Current through the inductor over time.
+        i2 (numpy.ndarray): Current through the capacitor over time.
+        vC (numpy.ndarray): Voltage across the capacitor over time.
+    """
+# region initialize
+    def __init__(self, R=10, L=20, C=0.05, A=20, w=20, p=0):
+        """
+        Initializes the RLC circuit with default or user-defined parameters.
+
+        Args:
+            R (float): Resistance in Ohms. Default is 10.
+            L (float): Inductance in Henries. Default is 20.
+            C (float): Capacitance in Farads. Default is 0.05.
+            A (float): Amplitude of the input voltage in Volts. Default is 20.
+            w (float): Frequency of the input voltage in radians per second. Default is 20.
+            p (float): Phase of the input voltage in radians. Default is 0.
+        """
+        self.R = R
+        self.L = L
+        self.C = C
+        self.A = A
+        self.w = w
+        self.p = p
+# end region
+
+#regian math
+    def ode_system(self, t, X):
+        """
+        Defines the system of ordinary differential equations (ODEs) for the RLC circuit.
+
+        Args:
+            t (float): Time.
+            X (list): State vector [i1(t), i2(t)], where i1(t) is the current through the inductor
+                      and i2(t) is the current through the capacitor.
+
+        Returns:
+            list: The derivatives [i1dot, i2dot], where i1dot is the derivative of i1(t) and
+                  i2dot is the derivative of i2(t).
+        """
+        i1, i2 = X
+        vt = self.A * np.sin(self.w*t + self.p)
+        i1dot = (vt - self.R*(i1 - i2))/self.L
+        i2dot = i1dot - (1.0/(self.R*self.C))*i2
+        return [i1dot, i2dot]
+# end region
+
+# region time
+    def simulate(self, t=10, pts=500):
+        """
+        Simulates the RLC circuit over a specified time period.
+
+        Args:
+            t (float): Total simulation time in seconds. Default is 10.
+            pts (int): Number of points to evaluate in the simulation. Default is 500.
+        """
+        t_span = (0, t)
+        t_eval = np.linspace(0, t, pts)
+        # initial conditions i1(0)=0, i2(0)=0
+        X0 = [0.0, 0.0]
+        sol = solve_ivp(self.ode_system, t_span, X0, t_eval=t_eval)
+
+        self.t  = sol.t
+        self.i1 = sol.y[0]
+        self.i2 = sol.y[1]
+
+        # next we compute vC(t) = (i2 - i1)*R
+        self.vC = (self.i2 - self.i1)*self.R
+# end region
+#region plot
+    def doPlot(self):
+        """
+        Plots the simulation results for the RLC circuit.
+
+        The plot includes:
+        - i1(t): Current through the inductor (solid line).
+        - i2(t): Current through the capacitor (dashed line).
+        - vC(t): Voltage across the capacitor (dotted line).
+
+        The plot uses two y-axes: one for currents (i1, i2) and one for voltage (vC).
+        """
+        fig, ax1 = plt.subplots(figsize=(12,12))
+
+        # i1(t) and i2(t) on left axis
+        i1_line = ax1.plot(self.t, self.i1, label='i1(t)', color='black', linestyle='-', linewidth=1.5)
+        i2_line = ax1.plot(self.t, self.i2, label='i2(t)', color='black', linestyle='--', linewidth=1.5)
+        ax1.set_xlabel('t (s)')
+        ax1.set_ylabel('i1, i2 (A)')
+        ax1.set_xlim([0, 10])
+        ax1.set_ylim([-0.06, 0.10])
+        ax1.tick_params(axis='both', which='both', direction='in', top=True, bottom=True)
+        ax1.grid(True)
+
+        # second y-axis for vC
+        ax2 = ax1.twinx()
+        vC_line = ax2.plot(self.t, self.vC, label='vC(t)', color='black', linestyle=':', linewidth=1.5)
+        ax2.set_ylabel('vC(t) (V)')
+        ax2.set_ylim([-0.5, 0.1])
+        ax2.tick_params(axis='y', which='both', direction='in')
+
+        # separate legends: top right for i1, i2; bottom right for vC
+        lines1, labs1 = ax1.get_legend_handles_labels()
+        ax1.legend(lines1, labs1, loc='upper right')  # i1, i2 legend at top right
+
+        lines2, labs2 = ax2.get_legend_handles_labels()
+        ax2.legend(lines2, labs2, loc='lower right')  # vC(t) legend at bottom right
+
+        plt.title(f"RLC R={self.R}, L={self.L}, C={self.C}, v(t)={self.A} sin({self.w} t + {self.p})")
+        plt.show()
+
+# endregion
+
+# region function definitions
+def main():
+    """
+    Main function to interactively simulate and plot an RLC circuit.
+
+    The user can input custom circuit parameters or use default values.
+    The simulation results are plotted, and the user can choose to run the simulation again.
+    """
+    circ = circuit()  # default
+    goAgain=True
+    while goAgain:
+        # solicit user input
+        print("\nEnter circuit parameters (press Enter to keep default).")
+        R = input(f"Resistance R [Ohms] (current={circ.R}): ")
+        L = input(f"Inductance L [H] (current={circ.L}): ")
+        C = input(f"Capacitance C [F] (current={circ.C}): ")
+        A = input(f"Amplitude A [V] (current={circ.A}): ")
+        w = input(f"Frequency w [rad/s] (current={circ.w}): ")
+        p = input(f"Phase p [rad] (current={circ.p}): ")
+
+        if R.strip(): circ.R=float(R)
+        if L.strip(): circ.L=float(L)
+        if C.strip(): circ.C=float(C)
+        if A.strip(): circ.A=float(A)
+        if w.strip(): circ.w=float(w)
+        if p.strip(): circ.p=float(p)
+
+        # simulate and plot
+        circ.simulate(t=10, pts=500)
+        circ.doPlot()
+        ans=input("Simulate again? (y/n): ").lower().strip()
+        if ans!='y':
+            goAgain=False
+
+    print("Exiting.")
+# end region
+
+# region function calls
+if __name__=="__main__":
+    main()
+#end region
