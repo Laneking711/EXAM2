@@ -1,0 +1,97 @@
+# region imports
+import numpy as np
+from scipy.integrate import solve_ivp, quad
+import matplotlib.pyplot as plt
+# endregion
+
+# region function definitions
+def S(x):
+    """
+    Compute S(x) = \int_0^x sin(t^2) dt, the Fresnel-type integral,
+    using quad from scipy.integrate.
+    """
+    s = quad(lambda t: np.sin(t**2), 0, x)
+    return s[0]  # s is (value, error_est)
+
+def Exact(x):
+    """
+    The exact solution given by:
+      y = 1 / [2.5 - S(x)] + 0.01*x^2
+    where S(x) is the integral from 0 to x of sin(t^2) dt.
+    """
+    return 1.0/(2.5 - S(x)) + 0.01*(x**2)
+
+def ODE_System(t, y):
+    """
+    ODE:  y' = (y - 0.01*x^2)^2 sin(x^2) + 0.02*x
+    Here, y is a list or array of one element [y(t)].
+    """
+    Y = y[0]  # rename the single state variable
+    x = t     # treat 't' as x for this problem
+    Ydot = (Y - 0.01*x**2)**2 * np.sin(x**2) + 0.02*x
+    return [Ydot]
+
+def Plot_Result(xRange_Num, y_Num, xRange_Xct, y_Xct):
+    """
+    Produce the plot with:
+      - exact solution as a solid line
+      - numerical solution as upward triangles every 0.2 increments in x
+      - x axis from 0..6, y axis from 0..1, labeled like smays
+      - legend with 'Exact' and 'Numerical'
+      - tick marks like smays
+      - title like smays
+    """
+    plt.figure()
+    # exact solution: solid line
+    plt.plot(xRange_Xct, y_Xct, 'k-', label='Exact')
+    # numerical solution: triangles at intervals of 0.2 in x
+    plt.plot(xRange_Num, y_Num, 'k^', label='Numerical')
+
+    # set axis limits & ticks
+    plt.xlim([0.0, 6.0])
+    plt.ylim([0.0, 1.0])
+    # format tick marks (inward ticks top/bottom, left/right)
+    plt.gca().tick_params(axis='x', which='both', direction='in', top=True, bottom=True)
+    plt.gca().tick_params(axis='y', which='both', direction='in', left=True, right=True)
+
+    # label axes and add legend
+    plt.xlabel('x', fontsize=12)
+    plt.ylabel('y', fontsize=12)
+    plt.legend(loc='best')
+
+    # format numeric precision on axes
+    plt.gca().xaxis.set_major_formatter(plt.FormatStrFormatter('%.1f'))
+    plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter('%.1f'))
+
+    # title
+    plt.title("IVP: y' = (y - 0.01x^2)^2 sin(x^2) + 0.02x, y(0)=0.4")
+
+    plt.show()
+
+def main():
+    """
+    This function solves the IVP:
+      y'=(y-0.01x^2)^2 sin(x^2) + 0.02x,  y(0)=0.4
+    from x=0 to x=5, using step size h=0.2, and
+    compares with the exact solution y = 1/[2.5 - S(x)] + 0.01x^2,
+    with S(x)=int_0^x sin(t^2) dt.
+    """
+    # x from 0 to 5 in increments of 0.2 => 26 points
+    xRange = np.arange(0, 5.0+1e-9, 0.2)  # small epsilon to include 5.0
+    xRange_xct = np.linspace(0,5,500)    # for the exact solution
+    Y0 = [0.4]  # initial condition
+
+    sln = solve_ivp(ODE_System, [0,5], Y0, t_eval=xRange)
+
+    # compute exact solution at fine resolution
+    xctSln = np.array([Exact(x) for x in xRange_xct])
+
+    # do final plotting
+    Plot_Result(sln.t, sln.y[0], xRange_xct, xctSln)
+
+# endregion
+
+# region function calls
+if __name__ ==  "__main__":
+    main()
+# endregion
